@@ -157,7 +157,7 @@ ntfs_dinode_lookup(NTFS_INFO * a_ntfs, char *a_buf, TSK_INUM_T a_mftnum)
         return TSK_ERR;
     }
 
-    /* Because this code reads teh actual MFT, we need to make sure we
+    /* Because this code reads the actual MFT, we need to make sure we
      * decrement the last_inum because the last value is a special value
      * for the ORPHANS directory */
     if (a_mftnum > fs->last_inum - 1) {

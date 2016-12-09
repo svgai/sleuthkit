@@ -567,6 +567,15 @@ tsk_fs_dir_walk_lcl(TSK_FS_INFO * a_fs, DENT_DINFO * a_dinfo,
          * careful about resetting this before we free fs_file */
         fs_file->name = (TSK_FS_NAME *) & fs_dir->names[i];
 
+		/* If only undeleted files were requested, there is no need to do orphan folder traversal.
+		 * Note that this code significantly improves performance when working with remote image 
+		 * (with help of hooking API, for example), but also may decrease performance if using iteratively as
+		 * part of gui*/
+		if (fs_file->name->meta_addr == TSK_FS_ORPHANDIR_INUM(a_fs) && (a_flags & TSK_FS_DIR_WALK_FLAG_UNALLOC) == 0)
+		{
+			return TSK_WALK_STOP;
+		}
+
         /* load the fs_meta structure if possible.
          * Must have non-zero inode addr or have allocated name (if inode is 0) */
         if (((fs_file->name->meta_addr)
