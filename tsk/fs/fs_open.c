@@ -68,6 +68,197 @@ tsk_fs_open_vol(const TSK_VS_PART_INFO * a_part_info,
     return tsk_fs_open_img(a_part_info->vs->img_info, offset, a_ftype);
 }
 
+TSK_FS_INFO *
+tsk_process_fs_open_img(TSK_IMG_INFO * a_img_info, TSK_OFF_T a_offset,
+	TSK_FS_TYPE_ENUM a_ftype, uint8_t is_remote)
+{
+	if (a_img_info == NULL) {
+		tsk_error_reset();
+		tsk_error_set_errno(TSK_ERR_FS_ARG);
+		tsk_error_set_errstr("tsk_fs_open_img: Null image handle");
+		return NULL;
+	}
+
+	/* We will try different file systems ...
+	* We need to try all of them in case more than one matches
+	*/
+	if (a_ftype == TSK_FS_TYPE_DETECT) {
+		TSK_FS_INFO *fs_info, *fs_set = NULL;
+		char *set = NULL;
+
+		if (tsk_verbose)
+			tsk_fprintf(stderr,
+				"fsopen: Auto detection mode at offset %" PRIuOFF "\n",
+				a_offset);
+
+		if ((fs_info =
+			ntfs_open(a_img_info, a_offset, TSK_FS_TYPE_NTFS_DETECT,
+				1)) != NULL) {
+			set = "NTFS";
+			fs_set = fs_info;
+		}
+		else {
+			tsk_error_reset();
+		}
+
+		if ((fs_info =
+			fatfs_open(a_img_info, a_offset, TSK_FS_TYPE_FAT_DETECT,
+				1)) != NULL) {
+			if (set == NULL) {
+				set = "FAT";
+				fs_set = fs_info;
+			}
+			else {
+				fs_set->close(fs_set);
+				fs_info->close(fs_info);
+				tsk_error_reset();
+				tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
+				tsk_error_set_errstr("FAT or %s", set);
+				return NULL;
+			}
+		}
+		else {
+			tsk_error_reset();
+		}
+
+		if ((fs_info =
+			ext2fs_open(a_img_info, a_offset, TSK_FS_TYPE_EXT_DETECT,
+				1)) != NULL) {
+			if (set == NULL) {
+				set = "EXT2/3";
+				fs_set = fs_info;
+			}
+			else {
+				fs_set->close(fs_set);
+				fs_info->close(fs_info);
+				tsk_error_reset();
+				tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
+				tsk_error_set_errstr("EXT2/3 or %s", set);
+				return NULL;
+			}
+		}
+		else {
+			tsk_error_reset();
+		}
+
+		if ((fs_info =
+			ffs_open(a_img_info, a_offset,
+				TSK_FS_TYPE_FFS_DETECT)) != NULL) {
+			if (set == NULL) {
+				set = "UFS";
+				fs_set = fs_info;
+			}
+			else {
+				fs_set->close(fs_set);
+				fs_info->close(fs_info);
+				tsk_error_reset();
+				tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
+				tsk_error_set_errstr("UFS or %s", set);
+				return NULL;
+			}
+		}
+		else {
+			tsk_error_reset();
+		}
+
+		if ((fs_info =
+			yaffs2_open(a_img_info, a_offset,
+				TSK_FS_TYPE_YAFFS2_DETECT, 1)) != NULL) {
+			if (set == NULL) {
+				set = "YAFFS2";
+				fs_set = fs_info;
+			}
+			else {
+				fs_set->close(fs_set);
+				fs_info->close(fs_info);
+				tsk_error_reset();
+				tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
+				tsk_error_set_errstr("YAFFS2 or %s", set);
+				return NULL;
+			}
+		}
+		else {
+			tsk_error_reset();
+		}
+
+
+#if TSK_USE_HFS
+		if ((fs_info =
+			hfs_open(a_img_info, a_offset, TSK_FS_TYPE_HFS_DETECT,
+				1)) != NULL) {
+			if (set == NULL) {
+				set = "HFS";
+				fs_set = fs_info;
+			}
+			else {
+				fs_set->close(fs_set);
+				fs_info->close(fs_info);
+				tsk_error_reset();
+				tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
+				tsk_error_set_errstr("HFS or %s", set);
+				return NULL;
+			}
+		}
+		else {
+			tsk_error_reset();
+		}
+#endif
+
+		if ((fs_info =
+			iso9660_open(a_img_info, a_offset,
+				TSK_FS_TYPE_ISO9660_DETECT, 1)) != NULL) {
+			if (set != NULL) {
+				fs_set->close(fs_set);
+				fs_info->close(fs_info);
+				tsk_error_reset();
+				tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
+				tsk_error_set_errstr("ISO9660 or %s", set);
+				return NULL;
+			}
+			fs_set = fs_info;
+		}
+		else {
+			tsk_error_reset();
+		}
+
+
+		if (fs_set == NULL) {
+			tsk_error_reset();
+			tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
+			return NULL;
+		}
+		return fs_set;
+	}
+	else {
+		if (TSK_FS_TYPE_ISNTFS(a_ftype) && !is_remote)
+			return ntfs_open(a_img_info, a_offset, a_ftype, 0);
+		else if (TSK_FS_TYPE_ISNTFS(a_ftype))
+			return ntfs_open_remote(a_img_info, a_offset, a_ftype);
+		else if (TSK_FS_TYPE_ISFAT(a_ftype))
+			return fatfs_open(a_img_info, a_offset, a_ftype, 0);
+		else if (TSK_FS_TYPE_ISFFS(a_ftype))
+			return ffs_open(a_img_info, a_offset, a_ftype);
+		else if (TSK_FS_TYPE_ISEXT(a_ftype))
+			return ext2fs_open(a_img_info, a_offset, a_ftype, 0);
+		else if (TSK_FS_TYPE_ISHFS(a_ftype))
+			return hfs_open(a_img_info, a_offset, a_ftype, 0);
+		else if (TSK_FS_TYPE_ISISO9660(a_ftype))
+			return iso9660_open(a_img_info, a_offset, a_ftype, 0);
+		else if (TSK_FS_TYPE_ISRAW(a_ftype))
+			return rawfs_open(a_img_info, a_offset);
+		else if (TSK_FS_TYPE_ISSWAP(a_ftype))
+			return swapfs_open(a_img_info, a_offset);
+		else if (TSK_FS_TYPE_ISYAFFS2(a_ftype))
+			return yaffs2_open(a_img_info, a_offset, a_ftype, 0);
+		else {
+			tsk_error_reset();
+			tsk_error_set_errno(TSK_ERR_FS_UNSUPTYPE);
+			tsk_error_set_errstr("%X", (int)a_ftype);
+			return NULL;
+		}
+	}
+}
+
 /**
  * \ingroup fslib
  * Tries to process data in a disk image at a given offset as a file system.
@@ -83,189 +274,14 @@ TSK_FS_INFO *
 tsk_fs_open_img(TSK_IMG_INFO * a_img_info, TSK_OFF_T a_offset,
     TSK_FS_TYPE_ENUM a_ftype)
 {
-    if (a_img_info == NULL) {
-        tsk_error_reset();
-        tsk_error_set_errno(TSK_ERR_FS_ARG);
-        tsk_error_set_errstr("tsk_fs_open_img: Null image handle");
-        return NULL;
-    }
+	return tsk_process_fs_open_img(a_img_info, a_offset, a_ftype, 0);
+}
 
-    /* We will try different file systems ...
-     * We need to try all of them in case more than one matches
-     */
-    if (a_ftype == TSK_FS_TYPE_DETECT) {
-        TSK_FS_INFO *fs_info, *fs_set = NULL;
-        char *set = NULL;
-
-        if (tsk_verbose)
-            tsk_fprintf(stderr,
-                "fsopen: Auto detection mode at offset %" PRIuOFF "\n",
-                a_offset);
-
-        if ((fs_info =
-                ntfs_open(a_img_info, a_offset, TSK_FS_TYPE_NTFS_DETECT,
-                    1)) != NULL) {
-            set = "NTFS";
-            fs_set = fs_info;
-        }
-        else {
-            tsk_error_reset();
-        }
-
-        if ((fs_info =
-                fatfs_open(a_img_info, a_offset, TSK_FS_TYPE_FAT_DETECT,
-                    1)) != NULL) {
-            if (set == NULL) {
-                set = "FAT";
-                fs_set = fs_info;
-            }
-            else {
-                fs_set->close(fs_set);
-                fs_info->close(fs_info);
-                tsk_error_reset();
-                tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
-                tsk_error_set_errstr("FAT or %s", set);
-                return NULL;
-            }
-        }
-        else {
-            tsk_error_reset();
-        }
-
-        if ((fs_info =
-                ext2fs_open(a_img_info, a_offset, TSK_FS_TYPE_EXT_DETECT,
-                    1)) != NULL) {
-            if (set == NULL) {
-                set = "EXT2/3";
-                fs_set = fs_info;
-            }
-            else {
-                fs_set->close(fs_set);
-                fs_info->close(fs_info);
-                tsk_error_reset();
-                tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
-                tsk_error_set_errstr("EXT2/3 or %s", set);
-                return NULL;
-            }
-        }
-        else {
-            tsk_error_reset();
-        }
-
-        if ((fs_info =
-                ffs_open(a_img_info, a_offset,
-                    TSK_FS_TYPE_FFS_DETECT)) != NULL) {
-            if (set == NULL) {
-                set = "UFS";
-                fs_set = fs_info;
-            }
-            else {
-                fs_set->close(fs_set);
-                fs_info->close(fs_info);
-                tsk_error_reset();
-                tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
-                tsk_error_set_errstr("UFS or %s", set);
-                return NULL;
-            }
-        }
-        else {
-            tsk_error_reset();
-        }
-
-        if ((fs_info =
-                yaffs2_open(a_img_info, a_offset,
-                    TSK_FS_TYPE_YAFFS2_DETECT, 1)) != NULL) {
-            if (set == NULL) {
-                set = "YAFFS2";
-                fs_set = fs_info;
-            }
-            else {
-                fs_set->close(fs_set);
-                fs_info->close(fs_info);
-                tsk_error_reset();
-                tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
-                tsk_error_set_errstr("YAFFS2 or %s", set);
-                return NULL;
-            }
-        }
-        else {
-            tsk_error_reset();
-        }
-
-
-#if TSK_USE_HFS
-        if ((fs_info =
-                hfs_open(a_img_info, a_offset, TSK_FS_TYPE_HFS_DETECT,
-                    1)) != NULL) {
-            if (set == NULL) {
-                set = "HFS";
-                fs_set = fs_info;
-            }
-            else {
-                fs_set->close(fs_set);
-                fs_info->close(fs_info);
-                tsk_error_reset();
-                tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
-                tsk_error_set_errstr("HFS or %s", set);
-                return NULL;
-            }
-        }
-        else {
-            tsk_error_reset();
-        }
-#endif
-
-        if ((fs_info =
-                iso9660_open(a_img_info, a_offset,
-                    TSK_FS_TYPE_ISO9660_DETECT, 1)) != NULL) {
-            if (set != NULL) {
-                fs_set->close(fs_set);
-                fs_info->close(fs_info);
-                tsk_error_reset();
-                tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
-                tsk_error_set_errstr("ISO9660 or %s", set);
-                return NULL;
-            }
-            fs_set = fs_info;
-        }
-        else {
-            tsk_error_reset();
-        }
-
-
-        if (fs_set == NULL) {
-            tsk_error_reset();
-            tsk_error_set_errno(TSK_ERR_FS_UNKTYPE);
-            return NULL;
-        }
-        return fs_set;
-    }
-    else {
-        if (TSK_FS_TYPE_ISNTFS(a_ftype))
-            return ntfs_open(a_img_info, a_offset, a_ftype, 0);
-        else if (TSK_FS_TYPE_ISFAT(a_ftype))
-            return fatfs_open(a_img_info, a_offset, a_ftype, 0);
-        else if (TSK_FS_TYPE_ISFFS(a_ftype))
-            return ffs_open(a_img_info, a_offset, a_ftype);
-        else if (TSK_FS_TYPE_ISEXT(a_ftype))
-            return ext2fs_open(a_img_info, a_offset, a_ftype, 0);
-        else if (TSK_FS_TYPE_ISHFS(a_ftype))
-            return hfs_open(a_img_info, a_offset, a_ftype, 0);
-        else if (TSK_FS_TYPE_ISISO9660(a_ftype))
-            return iso9660_open(a_img_info, a_offset, a_ftype, 0);
-        else if (TSK_FS_TYPE_ISRAW(a_ftype))
-            return rawfs_open(a_img_info, a_offset);
-        else if (TSK_FS_TYPE_ISSWAP(a_ftype))
-            return swapfs_open(a_img_info, a_offset);
-        else if (TSK_FS_TYPE_ISYAFFS2(a_ftype))
-            return yaffs2_open(a_img_info, a_offset, a_ftype, 0);
-        else {
-            tsk_error_reset();
-            tsk_error_set_errno(TSK_ERR_FS_UNSUPTYPE);
-            tsk_error_set_errstr("%X", (int) a_ftype);
-            return NULL;
-        }
-    }
+TSK_FS_INFO * 
+tsk_fs_open_img_remote(TSK_IMG_INFO * a_img_info, TSK_OFF_T a_offset,
+	TSK_FS_TYPE_ENUM a_ftype)
+{
+	return tsk_process_fs_open_img(a_img_info, a_offset, a_ftype, 1);
 }
 
 /**

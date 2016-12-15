@@ -982,6 +982,8 @@ extern "C" {
     /* File system level */
     extern TSK_FS_INFO *tsk_fs_open_img(TSK_IMG_INFO *, TSK_OFF_T,
         TSK_FS_TYPE_ENUM);
+	extern TSK_FS_INFO *tsk_fs_open_img_remote(TSK_IMG_INFO *, TSK_OFF_T,
+		TSK_FS_TYPE_ENUM);
     extern TSK_FS_INFO *tsk_fs_open_vol(const TSK_VS_PART_INFO *,
         TSK_FS_TYPE_ENUM);
     extern void tsk_fs_close(TSK_FS_INFO *);

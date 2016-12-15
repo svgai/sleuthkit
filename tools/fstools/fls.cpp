@@ -260,7 +260,18 @@ main(int argc, char **argv1)
                 PRIu64 ")\n", img->size / img->sector_size);
             exit(1);
         }
-        if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
+		
+		if ((name_flags & TSK_FS_DIR_WALK_FLAG_UNALLOC) == 0) {
+			if ((fs = tsk_fs_open_img_remote(img, imgaddr * img->sector_size, fstype)) == NULL) {
+				tsk_error_print(stderr);
+				if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
+					tsk_fs_type_print(stderr);
+
+				img->close(img);
+				exit(1);
+			}
+		}
+        else if ((fs = tsk_fs_open_img(img, imgaddr * img->sector_size, fstype)) == NULL) {
             tsk_error_print(stderr);
             if (tsk_error_get_errno() == TSK_ERR_FS_UNSUPTYPE)
                 tsk_fs_type_print(stderr);
