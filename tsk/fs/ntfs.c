@@ -5139,12 +5139,12 @@ TSK_FS_INFO *
 ntfs_open(TSK_IMG_INFO * img_info, TSK_OFF_T offset,
     TSK_FS_TYPE_ENUM ftype, uint8_t test)
 {
-	ntfs_process_open(img_info, offset, ftype, 0);
+	return ntfs_process_open(img_info, offset, ftype, 0);
 }
 
 TSK_FS_INFO * 
 ntfs_open_remote(TSK_IMG_INFO * img_info, TSK_OFF_T offset,
 	TSK_FS_TYPE_ENUM ftype)
 {
-	ntfs_process_open(img_info, offset, ftype, 1);
+	return ntfs_process_open(img_info, offset, ftype, 1);
 }
