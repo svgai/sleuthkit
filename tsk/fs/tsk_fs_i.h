@@ -191,6 +191,7 @@ extern "C" {
         TSK_FS_TYPE_ENUM, uint8_t);
 	extern TSK_FS_INFO *ntfs_open_remote(TSK_IMG_INFO *, TSK_OFF_T,
 		TSK_FS_TYPE_ENUM);
+	extern uint8_t ntfs_load_preload_data(TSK_IMG_INFO * , TSK_FS_INFO *);
     extern TSK_FS_INFO *rawfs_open(TSK_IMG_INFO *, TSK_OFF_T);
     extern TSK_FS_INFO *swapfs_open(TSK_IMG_INFO *, TSK_OFF_T);
     extern TSK_FS_INFO *iso9660_open(TSK_IMG_INFO *, TSK_OFF_T,

@@ -230,10 +230,28 @@ tsk_process_fs_open_img(TSK_IMG_INFO * a_img_info, TSK_OFF_T a_offset,
 		return fs_set;
 	}
 	else {
-		if (TSK_FS_TYPE_ISNTFS(a_ftype) && !is_remote)
-			return ntfs_open(a_img_info, a_offset, a_ftype, 0);
-		else if (TSK_FS_TYPE_ISNTFS(a_ftype))
-			return ntfs_open_remote(a_img_info, a_offset, a_ftype);
+		if (TSK_FS_TYPE_ISNTFS(a_ftype))
+		{
+			TSK_FS_INFO * result_fs;
+			if (!is_remote)
+			{
+				result_fs = ntfs_open(a_img_info, a_offset, a_ftype, 0);
+			}
+			else
+			{
+				result_fs = ntfs_open_remote(a_img_info, a_offset, a_ftype);
+			}
+
+			// for remote version of image it's resonable to pre-download several chunks of data: 
+			// 1. all mft data runs 
+			// 2. first 100 megabytes on disk (it's a hight probability of extended attributes to 
+			// be stored there. 
+			// 3. statistically calculated - +- 30 MB of data around mft (high probability of 
+			// extended attributes to be stored there).
+
+
+			return result_fs;
+		} 
 		else if (TSK_FS_TYPE_ISFAT(a_ftype))
 			return fatfs_open(a_img_info, a_offset, a_ftype, 0);
 		else if (TSK_FS_TYPE_ISFFS(a_ftype))

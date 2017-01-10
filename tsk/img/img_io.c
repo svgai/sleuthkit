@@ -25,6 +25,10 @@ ssize_t
 tsk_img_read(TSK_IMG_INFO * a_img_info, TSK_OFF_T a_off,
     char *a_buf, size_t a_len)
 {
+	//tsk_fprintf(stdout, "ADDRESS: %u\n", a_off);
+	//TSK_OFF_T last_off = a_off + a_len;
+	//tsk_fprintf(stdout, "ADDRESS2: %u\n", last_off);
+
 #define CACHE_AGE   1000
     ssize_t read_count = 0;
     int cache_index = 0;

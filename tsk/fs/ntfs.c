@@ -5088,6 +5088,19 @@ ntfs_process_open(TSK_IMG_INFO * img_info, TSK_OFF_T offset,
 	}
 #endif
 
+	if (is_remote)
+	{
+		//preload mft data 
+		if (ntfs_load_preload_data(img_info, ntfs))
+		{
+			tsk_fs_file_close(ntfs->mft_file);
+			if (tsk_verbose)
+				fprintf(stderr, "ntfs_open: Error preloading mft data (%s)\n",
+					tsk_error_get());
+			goto on_error;
+		}
+	}
+
 	// initialize the caches
 	ntfs->attrdef = NULL;
 	ntfs->orphan_map = NULL;
@@ -5147,4 +5160,73 @@ ntfs_open_remote(TSK_IMG_INFO * img_info, TSK_OFF_T offset,
 	TSK_FS_TYPE_ENUM ftype)
 {
 	return ntfs_process_open(img_info, offset, ftype, 1);
+}
+
+
+//this function doing nothing but reading data we need to pre-load 
+// when working remotely to a buffer that it immediatly frees. 
+// Assuming that hooking API is used it will download whole mft data in one 
+// chunk so later functions will use it without netwirking delays
+uint8_t
+ntfs_load_preload_data(TSK_IMG_INFO * img,  NTFS_INFO * a_ntfs)
+{
+	TSK_FS_ATTR_RUN *data_run;
+	TSK_OFF_T run_len = 0;
+	int cnt = 0;;
+	char * tempBuffer;
+	if (!a_ntfs->mft_data)
+	{
+		//try to calculate mft size based on known values
+		// not supported right now 
+		return 1;
+	}
+	else
+	{
+		//iterate through mft data runs to preload mft table 
+		for (data_run = a_ntfs->mft_data->nrd.run;
+			data_run != NULL; data_run = data_run->next) {
+			
+			/* The length of this specific run */
+			run_len = data_run->len * a_ntfs->csize_b;
+			tempBuffer = (unsigned char*)tsk_malloc(run_len + 1);
+
+			cnt = tsk_img_read(img, data_run->addr * a_ntfs->csize_b, tempBuffer, run_len);
+			if (tsk_verbose)
+			{
+				tsk_fprintf(stderr, "Preloading mft data run by reading it. Totally read %u bytes", cnt);
+			}
+			free(tempBuffer);
+			cnt = 0;
+
+			//extended attributes are often stored right after data run. Also data runs may not be continious,
+			//so we're trying to read extra 20Mb after each run. 
+			if (img->size > data_run->addr * a_ntfs->csize_b + run_len + 20000000)
+			{
+				tempBuffer = (unsigned char*)tsk_malloc(20000000 + 1);
+				cnt = tsk_img_read(img, data_run->addr * a_ntfs->csize_b + run_len, tempBuffer, 20000000);
+				if (tsk_verbose)
+				{
+					tsk_fprintf(stderr, "Preloading mft data run by reading it. Totally read %u bytes", cnt);
+				}
+				free(tempBuffer);
+			}
+
+			run_len = 0;
+		}
+
+		//preload first boot sector (typically, mft data falls into first hundred megabytes after vhd info )
+		run_len = 100000000;
+		if (img->size > run_len + 50000000)
+		{
+			tempBuffer = (unsigned char*)tsk_malloc(run_len + 1);
+			cnt = tsk_img_read(img, 50000000, tempBuffer, run_len);
+			if (tsk_verbose)
+			{
+				tsk_fprintf(stderr, "Preloading bootdata run by reading it. Totally read %u bytes", cnt);
+			}
+			free(tempBuffer);
+		}
+	}
+
+	return 0;	
 }

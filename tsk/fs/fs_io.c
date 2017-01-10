@@ -88,6 +88,7 @@ fs_prepost_read(TSK_FS_INFO * a_fs, TSK_OFF_T a_off, char *a_buf,
 ssize_t
 tsk_fs_read(TSK_FS_INFO * a_fs, TSK_OFF_T a_off, char *a_buf, size_t a_len)
 {
+	
     // do a sanity check on the read bounds, but only if the block
     // value has been set. 
     // note that this could prevent us from viewing the FS slack...
