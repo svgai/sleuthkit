@@ -757,6 +757,7 @@ tsk_fs_attr_walk_nonres(const TSK_FS_ATTR * fs_attr,
     uint32_t skip_remain;
     TSK_FS_INFO *fs = fs_attr->fs_file->fs_info;
     uint8_t stop_loop = 0;
+	char * tempBuffer;
 
     if ((fs_attr->flags & TSK_FS_ATTR_NONRES) == 0) {
         tsk_error_set_errno(TSK_ERR_FS_ARG);
@@ -786,6 +787,16 @@ tsk_fs_attr_walk_nonres(const TSK_FS_ATTR * fs_attr,
         TSK_DADDR_T addr, len_idx;
 
         addr = fs_attr_run->addr;
+
+		//optimization for a remote usage: preload block data upfront
+		ssize_t cnt_temp;
+		tempBuffer = (unsigned char*)tsk_malloc(fs_attr_run->len * fs->block_size + 1);
+		cnt_temp = tsk_img_read(fs->img_info, fs-> offset + (addr * fs->block_size), tempBuffer, fs_attr_run->len * fs->block_size);
+		if (tsk_verbose)
+		{
+			tsk_fprintf(stderr, "Preloading block data upfront. Totally read %u bytes\n", cnt_temp);
+		}
+		free(tempBuffer);
 
         /* cycle through each block in the run */
         for (len_idx = 0; len_idx < fs_attr_run->len; len_idx++) {
