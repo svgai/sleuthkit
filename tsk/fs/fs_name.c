@@ -295,17 +295,16 @@ tsk_fs_time_to_str(time_t time, char buf[128])
 {
     buf[0] = '\0';
     if (time <= 0) {
-        strncpy(buf, "0000-00-00 00:00:00 (UTC)", 128);
+        strncpy(buf, "0000-00-00 00:00:00", 128);
     }
     else {
-        struct tm *tmTime = localtime(&time);
+        struct tm *tmTime = gmtime(&time);
 
-        snprintf(buf, 128, "%.4d-%.2d-%.2d %.2d:%.2d:%.2d (%s)",
-            (int) tmTime->tm_year + 1900,
+        snprintf(buf, 128, "%.4d-%.2d-%.2d %.2d:%.2d:%.2d",
+            (int)tmTime->tm_year + 1900,
             (int) tmTime->tm_mon + 1, (int) tmTime->tm_mday,
             tmTime->tm_hour,
-            (int) tmTime->tm_min, (int) tmTime->tm_sec,
-            _tzname[(tmTime->tm_isdst == 0) ? 0 : 1]);
+            (int) tmTime->tm_min, (int) tmTime->tm_sec);
     }
     return buf;
 }
@@ -417,41 +416,49 @@ tsk_fs_name_print(FILE * hFile, const TSK_FS_FILE * fs_file,
          */
         if ((fs_attr) && (fs_attr->type == TSK_FS_ATTR_TYPE_NTFS_DATA) &&
             (fs_file->meta->type == TSK_FS_META_TYPE_DIR)) {
-            tsk_fprintf(hFile, "r ");
+            tsk_fprintf(hFile, "r\t");
         }
         else {
             if (fs_file->meta->type < TSK_FS_META_TYPE_STR_MAX)
-                tsk_fprintf(hFile, "%s ",
+                tsk_fprintf(hFile, "%s\t",
                     tsk_fs_meta_type_str[fs_file->meta->type]);
             else
-                tsk_fprintf(hFile, "- ");
+                tsk_fprintf(hFile, "-\t");
         }
     }
     else {
-        tsk_fprintf(hFile, "- ");
+        tsk_fprintf(hFile, "-\t");
     }
 
 
     /* print a * if it is deleted */
     if (fs_file->name->flags & TSK_FS_NAME_FLAG_UNALLOC)
-        tsk_fprintf(hFile, "* ");
+        tsk_fprintf(hFile, "*\t");
 
     tsk_fprintf(hFile, "%" PRIuINUM "", fs_file->name->meta_addr);
 
     /* print the id and type if we have fs_attr (NTFS) */
-    if (fs_attr)
-        tsk_fprintf(hFile, "-%" PRIu32 "-%" PRIu16 "", fs_attr->type,
-            fs_attr->id);
-
-    tsk_fprintf(hFile, "%s:\t",
-        ((fs_file->meta) && (fs_file->meta->flags & TSK_FS_META_FLAG_ALLOC)
-            && (fs_file->name->
-                flags & TSK_FS_NAME_FLAG_UNALLOC)) ? "(realloc)" : "");
+	if (fs_attr)
+		tsk_fprintf(hFile, "\t%" PRIu32 "\t", fs_attr->type,
+			fs_attr->id);
+	else
+		tsk_fprintf(hFile, "\t\t");
 
     if ((print_path) && (a_path != NULL))
         tsk_print_sanitized(hFile, a_path);
 
     tsk_print_sanitized(hFile, fs_file->name->name);
+
+	//print filename separately if it's a file
+	if ((fs_file->meta) && fs_file->meta->type == TSK_FS_META_TYPE_REG)
+	{
+		tsk_fprintf(hFile, "\t");
+		tsk_print_sanitized(hFile, fs_file->name->name);
+	}
+	else
+	{
+		tsk_fprintf(hFile, "\t");
+	}
 
     /*  This will add the short name in parentheses
         if (fs_file->name->shrt_name != NULL && fs_file->name->shrt_name[0] != '\0')
@@ -509,6 +516,11 @@ tsk_fs_name_print_long(FILE * hFile, const TSK_FS_FILE * fs_file,
             tsk_fs_print_time(hFile, fs_file->meta->mtime - sec_skew);
         else
             tsk_fs_print_time(hFile, fs_file->meta->mtime);
+		if (fs_file->meta->mtime_nano)
+		{
+			tsk_fprintf(hFile, ".%u", fs_file->meta->mtime_nano / 1000000);
+		}
+
 
         tsk_fprintf(hFile, "\t");
         /* FAT only gives the day of last access */
@@ -516,18 +528,30 @@ tsk_fs_name_print_long(FILE * hFile, const TSK_FS_FILE * fs_file,
             tsk_fs_print_day(hFile, fs_file->meta->atime);
         else
             tsk_fs_print_time(hFile, fs_file->meta->atime - sec_skew);
+		if (fs_file->meta->atime_nano)
+		{
+			tsk_fprintf(hFile, ".%u", fs_file->meta->atime_nano / 1000000);
+		}
 
         tsk_fprintf(hFile, "\t");
         if (fs_file->meta->ctime)
             tsk_fs_print_time(hFile, fs_file->meta->ctime - sec_skew);
         else
             tsk_fs_print_time(hFile, fs_file->meta->ctime);
+		if (fs_file->meta->ctime_nano)
+		{
+			tsk_fprintf(hFile, ".%u", fs_file->meta->ctime_nano / 1000000);
+		}
 
         tsk_fprintf(hFile, "\t");
         if (fs_file->meta->crtime)
             tsk_fs_print_time(hFile, fs_file->meta->crtime - sec_skew);
         else
             tsk_fs_print_time(hFile, fs_file->meta->crtime);
+		if (fs_file->meta->crtime_nano)
+		{
+			tsk_fprintf(hFile, ".%u", fs_file->meta->crtime_nano / 1000000);
+		}
 
         /* use the stream size if one was given */
         if (fs_attr)
