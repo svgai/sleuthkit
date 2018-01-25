@@ -444,6 +444,14 @@ tsk_fs_name_print(FILE * hFile, const TSK_FS_FILE * fs_file,
 	else
 		tsk_fprintf(hFile, "\t\t");
 
+	//print number of hardlinks 
+	if (fs_file->meta)
+	{
+		tsk_fprintf(hFile, "%d\t", fs_file->meta->nlink);
+	}
+	else
+		tsk_fprintf(hFile, "\t");
+
     if ((print_path) && (a_path != NULL))
         tsk_print_sanitized(hFile, a_path);
 
@@ -518,7 +526,7 @@ tsk_fs_name_print_long(FILE * hFile, const TSK_FS_FILE * fs_file,
             tsk_fs_print_time(hFile, fs_file->meta->mtime);
 		if (fs_file->meta->mtime_nano)
 		{
-			tsk_fprintf(hFile, ".%u", fs_file->meta->mtime_nano / 1000000);
+			tsk_fprintf(hFile, ":%u:%u", fs_file->meta->mtime_nano / 1000000, fs_file->meta->mtime_nano % 1000000);
 		}
 
 
@@ -530,7 +538,7 @@ tsk_fs_name_print_long(FILE * hFile, const TSK_FS_FILE * fs_file,
             tsk_fs_print_time(hFile, fs_file->meta->atime - sec_skew);
 		if (fs_file->meta->atime_nano)
 		{
-			tsk_fprintf(hFile, ".%u", fs_file->meta->atime_nano / 1000000);
+			tsk_fprintf(hFile, ":%u:%u", fs_file->meta->atime_nano / 1000000, fs_file->meta->atime_nano % 1000000);
 		}
 
         tsk_fprintf(hFile, "\t");
@@ -540,7 +548,7 @@ tsk_fs_name_print_long(FILE * hFile, const TSK_FS_FILE * fs_file,
             tsk_fs_print_time(hFile, fs_file->meta->ctime);
 		if (fs_file->meta->ctime_nano)
 		{
-			tsk_fprintf(hFile, ".%u", fs_file->meta->ctime_nano / 1000000);
+			tsk_fprintf(hFile, ":%u:%u", fs_file->meta->ctime_nano / 1000000, fs_file->meta->ctime_nano % 1000000);
 		}
 
         tsk_fprintf(hFile, "\t");
@@ -550,7 +558,7 @@ tsk_fs_name_print_long(FILE * hFile, const TSK_FS_FILE * fs_file,
             tsk_fs_print_time(hFile, fs_file->meta->crtime);
 		if (fs_file->meta->crtime_nano)
 		{
-			tsk_fprintf(hFile, ".%u", fs_file->meta->crtime_nano / 1000000);
+			tsk_fprintf(hFile, ":%u:%u", fs_file->meta->crtime_nano / 1000000, fs_file->meta->crtime_nano % 1000000);
 		}
 
         /* use the stream size if one was given */
